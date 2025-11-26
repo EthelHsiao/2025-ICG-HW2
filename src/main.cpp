@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <iostream>
 #include <fstream>
@@ -55,11 +56,10 @@ bool useSelfRotation = false;
 bool useSqueeze = false;
 float squeezeFactor = 0;
 bool useBreathing = false; 
-float intensity = 1.0;
+float intensity = 1.0f;
 glm::vec3 breathingColor = glm::vec3(1.0f, 1.0f, 1.0f);
 
 int main() {
-    // glfw: initialize and configure
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -68,12 +68,8 @@ int main() {
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
-    /* TODO#0: Change window title to "HW2 - [your student id]"
-     *        Ex. HW2-112550000
-     */
 
-    // glfw window creation
-    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "HW2-your student id", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "HW2-112550179", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -84,177 +80,278 @@ int main() {
     glfwSetKeyCallback(window, keyCallback);
     glfwSwapInterval(1);
 
-    // glad: load all OpenGL function pointers
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
 
-    // TODO#1: Finish function createShader
-    // TODO#2: Finish function createProgram
-    // TODO#3: Finish function modelVAO
-    // TODO#4: Finish function loadTexture
-    // You can find the above functions right below the main function
-
-    // Initialize Object, Shader, Texture, VAO, VBO
     init();
 
-    // Enable depth test, face culling
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
     glCullFace(GL_BACK);
 
-    // Set viewport
     glfwGetFramebufferSize(window, &SCR_WIDTH, &SCR_HEIGHT);
     glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 
-    // render loop variables
     double dt;
     double lastTime = glfwGetTime();
     double currentTime;
 
-    /* TODO#5: Data connection - Retrieve uniform variable locations
-     *    1. Retrieve locations for model, view, and projection matrices.
-     *    2. Retrieve locations for squeezeFactor, breathingColor, intensity, and other parameters.
-     * Hint:
-     *    glGetUniformLocation
-     */
+    GLint modelLoc = glGetUniformLocation(shaderProgram, "model");
+    GLint viewLoc = glGetUniformLocation(shaderProgram, "view");
+    GLint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+    GLint squeezeFactorLoc = glGetUniformLocation(shaderProgram, "squeezeFactor");
+    GLint breathingColorLoc = glGetUniformLocation(shaderProgram, "breathingColor");
+    GLint intensityLoc = glGetUniformLocation(shaderProgram, "intensity");
+    GLint textureLoc = glGetUniformLocation(shaderProgram, "ourTexture");
 
-    // render loop
     while (!glfwWindowShouldClose(window)) {
-        // render color of water
-        glClearColor(0.15, 0.50, 0.65, 1.0);
+        // 防止窗口最小化時除以零
+        if (SCR_WIDTH == 0 || SCR_HEIGHT == 0) {
+            glfwPollEvents();
+            continue;
+        }
+
+        glClearColor(0.15f, 0.50f, 0.65f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
 
         glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 8.5f, 13.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 1000.0f);
 
         glm::mat4 groundModel(1.0f), fishModel(1.0f), columnModel(1.0f);
 
-        /* TODO#6-1: Render Ground
-         *    1. Set up ground model matrix.
-         *    2. Send model, view, and projection matrices to the program.
-         *    3. Send squeezeFactor, breathingColor, intensity, or other parameters to the program.
-         *    4. Apply the texture, and render the ground.
-         * Hint:
-         *	  rotate, translate, scale
-         *    glUniformMatrix4fv, glUniform1f, glUniform3fv
-         *    glActiveTexture, glBindTexture, glBindVertexArray, glDrawArrays
-         */
+        // Ground
+        groundModel = glm::mat4(1.0f);
+        groundModel = glm::translate(groundModel, glm::vec3(0.0f, -5.0f, 8.0f));
+        groundModel = glm::scale(groundModel, glm::vec3(35.0f, 1.0f, 25.0f));
 
-        /* TODO#6-2: Render Column
-         *    1. Set up column model matrix.
-         *    2. Send model, view, and projection matrices to the program.
-         *    3. Send squeezeFactor, breathingColor, intensity, or other parameters to the program.
-         *    4. Apply the texture, and render the column.
-         * Hint:
-         *	  rotate, translate, scale
-         *    glUniformMatrix4fv, glUniform1f, glUniform3fv
-         *    glActiveTexture, glBindTexture, glBindVertexArray, glDrawArrays
-         */
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(groundModel));
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+        glUniform1f(squeezeFactorLoc, 0.0f);
+        glUniform3fv(breathingColorLoc, 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+        glUniform1f(intensityLoc, 1.0f);
 
-        /* TODO#6-3: Render Fish
-         *    1. Set up fish model matrix.
-         *    2. Send model, view, and projection matrices to the program.
-         *    3. Send squeezeFactor, breathingColor, intensity, or other parameters to the program.
-         *    4. Apply the texture, and render the fish.
-         * Hint:
-         *	  rotate, translate, scale
-         *    glUniformMatrix4fv, glUniform1f, glUniform3fv
-         *    glActiveTexture, glBindTexture, glBindVertexArray, glDrawArrays
-         */
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, groundTexture);
+        glUniform1i(textureLoc, 0);
 
+        glBindVertexArray(groundVAO);
+        glDrawArrays(GL_TRIANGLES, 0, groundObject->positions.size() / 3);
+        glBindVertexArray(0);
 
-        // Status update
+        // Column
+        columnModel = glm::mat4(1.0f);
+        columnModel = glm::translate(columnModel, glm::vec3(0.0f, -4.0f, 0.0f));
+        columnModel = glm::rotate(columnModel, glm::radians(rotateColumnDegree), glm::vec3(0.0f, 1.0f, 0.0f));
+        columnModel = glm::rotate(columnModel, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        columnModel = glm::scale(columnModel, glm::vec3(0.05f, 0.05f, 0.05f));
+
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(columnModel));
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+        glUniform1f(squeezeFactorLoc, 0.0f);
+        glUniform3fv(breathingColorLoc, 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+        glUniform1f(intensityLoc, 1.0f);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, columnTexture);
+        glUniform1i(textureLoc, 0);
+
+        glBindVertexArray(columnVAO);
+        glDrawArrays(GL_TRIANGLES, 0, columnObject->positions.size() / 3);
+        glBindVertexArray(0);
+
+        // Fish
+        fishModel = glm::mat4(1.0f);
+        float fishX = fishColumnDist * sin(glm::radians(revolveFishDegree));
+        float fishZ = fishColumnDist * cos(glm::radians(revolveFishDegree));
+
+        fishModel = glm::translate(fishModel, glm::vec3(fishX, fishHeight, fishZ));
+        fishModel = glm::rotate(fishModel, glm::radians(-revolveFishDegree), glm::vec3(0.0f, 1.0f, 0.0f));
+        fishModel = glm::rotate(fishModel, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+
+        if (useSelfRotation) {
+            fishModel = glm::rotate(fishModel, glm::radians(-rotateFishDegree), glm::vec3(-1.0f, 0.0f, 0.0f));
+        }
+
+        fishModel = glm::scale(fishModel, glm::vec3(0.05f, 0.05f, 0.05f));
+
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(fishModel));
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+        float currentSqueezeFactor = useSqueeze ? squeezeFactor : 0.0f;
+        glUniform1f(squeezeFactorLoc, currentSqueezeFactor);
+
+        if (useBreathing) {
+            glUniform3fv(breathingColorLoc, 1, glm::value_ptr(breathingColor));
+            glUniform1f(intensityLoc, intensity);
+        } else {
+            glUniform3fv(breathingColorLoc, 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+            glUniform1f(intensityLoc, 1.0f);
+        }
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fishTexture);
+        glUniform1i(textureLoc, 0);
+
+        glBindVertexArray(fishVAO);
+        glDrawArrays(GL_TRIANGLES, 0, fishObject->positions.size() / 3);
+        glBindVertexArray(0);
+
+        // Update
         currentTime = glfwGetTime();
         dt = currentTime - lastTime;
         lastTime = currentTime;
 
-        /* TODO#7: Update "revolveFishDegree", "rotateColumnDegree", "rotateFishDegree", 
-         *          "fishHeight", "heightDir", 
-         *          "squeezeFactor", "breathingColor", "intensity"
-         */
+        rotateColumnDegree += rotateColumnSpeed * dt;
+        if (rotateColumnDegree >= 360.0f) rotateColumnDegree -= 360.0f;
 
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+        revolveFishDegree -= revolveFishSpeed * dt;
+        if (revolveFishDegree <= -360.0f) revolveFishDegree += 360.0f;
+
+        fishHeight += heightDir * heightSpeed * dt;
+        if (fishHeight > 2.0f) { fishHeight = 2.0f; heightDir = -1; }
+        else if (fishHeight < -2.0f) { fishHeight = -2.0f; heightDir = 1; }
+
+        if (useSelfRotation) {
+            rotateFishDegree += rotateFishSpeed * dt;
+            if (rotateFishDegree >= 360.0f) { rotateFishDegree = 0.0f; useSelfRotation = false; }
+        }
+
+        if (useSqueeze) {
+            squeezeFactor += glm::radians((float)squeezeSpeed) * dt;
+        }
+
+        if (useBreathing) {
+            breathingColor = glm::vec3(1.0f, 1.0f, 0.0f);
+            intensity = (sin(currentTime * 2.0f) + 1.0f) / 2.0f;
+            intensity = intensity * 0.8f + 0.2f;
+        }
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    // glfw: terminate, clearing all previously allocated GLFW resources.
     glfwTerminate();
     return 0;
 }
 
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-
-    // The action is one of GLFW_PRESS, GLFW_REPEAT or GLFW_RELEASE.
-    // Events with GLFW_PRESS and GLFW_RELEASE actions are emitted for every key press.
-    // Most keys will also emit events with GLFW_REPEAT actions while a key is held down.
-    // https://www.glfw.org/docs/3.3/input_guide.html
-
-    /* TODO#8: Key callback 
-    *    1. Press 'r' to rotate the fish.
-    *    2. Press 's' to squeeze the fish.
-    *    3. Press 'b' to make the breathing light.
-    * Hint:
-    *      GLFW_KEY_R, GLFW_KEY_S, GLFW_KEY_B
-    *      GLFW_PRESS, GLFW_REPEAT
-    */    
+    if (key == GLFW_KEY_R && action == GLFW_PRESS) {
+        if (!useSelfRotation) { useSelfRotation = true; rotateFishDegree = 0.0f; }
+    }
+    if (key == GLFW_KEY_S && action == GLFW_PRESS) {
+        useSqueeze = !useSqueeze;
+        if (!useSqueeze) squeezeFactor = 0.0f;
+    }
+    if (key == GLFW_KEY_B && action == GLFW_PRESS) {
+        useBreathing = !useBreathing;
+        if (!useBreathing) { breathingColor = glm::vec3(1.0f, 1.0f, 1.0f); intensity = 1.0f; }
+    }
 }
 
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
 void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
     glViewport(0, 0, width, height);
     SCR_WIDTH = width;
     SCR_HEIGHT = height;
 }
 
-/* TODO#1: createShader
- * input:
- *      filename: shader file name
- *      type: shader type, "vert" means vertex shader, "frag" means fragment shader
- * output: shader object
- * Hint:
- *      glCreateShader, glShaderSource, glCompileShader
- */
 unsigned int createShader(const string &filename, const string &type) {
+    std::ifstream shaderFile(filename);
+    if (!shaderFile.is_open()) {
+        std::cout << "ERROR::SHADER::FILE_NOT_FOUND: " << filename << std::endl;
+        return 0;
+    }
+    std::stringstream shaderStream;
+    shaderStream << shaderFile.rdbuf();
+    shaderFile.close();
+    std::string shaderCode = shaderStream.str();
+    const char* shaderCodeCStr = shaderCode.c_str();
+    
+    unsigned int shader;
+    if (type == "vert") shader = glCreateShader(GL_VERTEX_SHADER);
+    else if (type == "frag") shader = glCreateShader(GL_FRAGMENT_SHADER);
+    else { std::cout << "ERROR::SHADER::UNKNOWN_TYPE: " << type << std::endl; return 0; }
+    
+    glShaderSource(shader, 1, &shaderCodeCStr, NULL);
+    glCompileShader(shader);
+    
+    GLint success; char infoLog[512];
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+    if (!success) { glGetShaderInfoLog(shader, 512, NULL, infoLog); std::cout << "ERROR::SHADER::COMPILATION_FAILED (" << filename << ")\n" << infoLog << std::endl; }
+    return shader;
 }
 
-/* TODO#2: createProgram
- * input:
- *      vertexShader: vertex shader object
- *      fragmentShader: fragment shader object
- * output: shader program
- * Hint:
- *      glCreateProgram, glAttachShader, glLinkProgram, glDetachShader
- */
 unsigned int createProgram(unsigned int vertexShader, unsigned int fragmentShader) {
+    unsigned int program = glCreateProgram();
+    glAttachShader(program, vertexShader);
+    glAttachShader(program, fragmentShader);
+    glLinkProgram(program);
+    GLint success; char infoLog[512];
+    glGetProgramiv(program, GL_LINK_STATUS, &success);
+    if (!success) { glGetProgramInfoLog(program, 512, NULL, infoLog); std::cout << "ERROR::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl; }
+    glDetachShader(program, vertexShader);
+    glDetachShader(program, fragmentShader);
+    return program;
 }
 
-/* TODO#3: modelVAO
- * input:
- *      model: Object you want to render
- * output: VAO
- * Hint:
- *      glGenVertexArrays, glBindVertexArray, glGenBuffers, glBindBuffer, glBufferData,
- *      glVertexAttribPointer, glEnableVertexAttribArray,
- */
 unsigned int modelVAO(Object &model) {
+    unsigned int VAO, VBO[3];
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+    glGenBuffers(3, VBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
+    glBufferData(GL_ARRAY_BUFFER, model.positions.size() * sizeof(float), &model.positions[0], GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
+    glBufferData(GL_ARRAY_BUFFER, model.normals.size() * sizeof(float), &model.normals[0], GL_STATIC_DRAW);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO[2]);
+    glBufferData(GL_ARRAY_BUFFER, model.texcoords.size() * sizeof(float), &model.texcoords[0], GL_STATIC_DRAW);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(2);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    return VAO;
 }
 
-/* TODO#4: loadTexture
- * input:
- *      filename: texture file name
- * output: texture object
- * Hint:
- *      glEnable, glGenTextures, glBindTexture, glTexParameteri, glTexImage2D
- */
 unsigned int loadTexture(const string &filename) {
+    unsigned int texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    int width, height, nrChannels;
+    stbi_set_flip_vertically_on_load(true);
+    unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrChannels, 0);
+    if (data) {
+        GLenum format = GL_RGB;
+        if (nrChannels == 1) format = GL_RED;
+        else if (nrChannels == 3) format = GL_RGB;
+        else if (nrChannels == 4) format = GL_RGBA;
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    } else {
+        std::cout << "ERROR::TEXTURE::FAILED_TO_LOAD: " << filename << std::endl;
+    }
+    stbi_image_free(data);
+    return texture;
 }
 
 void init() {
@@ -268,25 +365,20 @@ void init() {
     string dirTexture = "..\\..\\src\\asset\\texture\\";
 #endif
 
-    // Object
     fishObject = new Object(dirAsset + "fish.obj");
     columnObject = new Object(dirAsset + "column.obj");
     groundObject = new Object(dirAsset + "cube.obj");
 
-    // Shader
     vertexShader = createShader(dirShader + "vertexShader.vert", "vert");
     fragmentShader = createShader(dirShader + "fragmentShader.frag", "frag");
     shaderProgram = createProgram(vertexShader, fragmentShader);
     glUseProgram(shaderProgram);
 
-    // Texture
     fishTexture = loadTexture(dirTexture + "fish.jpg");
     columnTexture = loadTexture(dirTexture + "column.jpg");
     groundTexture = loadTexture(dirTexture + "ground.jpg");
 
-    // VAO, VBO
     fishVAO = modelVAO(*fishObject);
     columnVAO = modelVAO(*columnObject);
     groundVAO = modelVAO(*groundObject);
 }
-

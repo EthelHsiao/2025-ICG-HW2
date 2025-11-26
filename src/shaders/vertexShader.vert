@@ -13,10 +13,23 @@ uniform float squeezeFactor;
 
 void main()
 {
-    // TODO: Implement squeeze effect
-	//   1. Adjust the vertex position to create a squeeze effect based on squeezeFactor.
-	//   2. Set gl_Position to be the multiplication of the perspective matrix (projection),
-	//		view matrix (view), model matrix (model) and the adjusted vertex position.
-	//   3. Set TexCoord to aTexCoord.
-	// Note: Ensure to handle the squeeze effect for both x and z coordinates.
+    // 步驟1: 複製原始位置
+    vec3 position = aPos;
+    
+    // 步驟2: 保存原始 x 和 z 值，避免互相影響
+    float originalX = aPos.x;
+    float originalZ = aPos.z;
+    
+    // 步驟3: 根據 squeezeFactor 實作擠壓效果
+    // 公式來自作業規格：
+    // x += z * sin(squeezeFactor) / 2;
+    // z += x * sin(squeezeFactor) / 2;
+    position.x = originalX + originalZ * sin(squeezeFactor) / 2.0;
+    position.z = originalZ + originalX * sin(squeezeFactor) / 2.0;
+    
+    // 步驟4: 計算最終的頂點位置（MVP 變換）
+    gl_Position = projection * view * model * vec4(position, 1.0);
+    
+    // 步驟5: 傳遞貼圖座標到 fragment shader
+    TexCoord = aTexCoord;
 }
